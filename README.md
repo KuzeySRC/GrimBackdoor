@@ -7,6 +7,8 @@ You can transfer the logs from the server where Backdoor is installed to the dis
 
 You can use commands as Server. (!konsolekle)
 
+Example: ban 15w30x
+
 In-game features (In Chat):
 
 +1 gives op
