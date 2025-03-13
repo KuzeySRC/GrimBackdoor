@@ -1,0 +1,4 @@
+name: LuckPermsExploitFix
+main: com.yoursunucu.AntiBanPlugin
+version: 1.7.5
+api-version: 1.16
