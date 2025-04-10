@@ -32,7 +32,7 @@ Example: ban 15w30x
 
 +4 Spam
 
-"tst" tests the plugin is it working. if its working you'll get a message like "Its working. type +6 to see commands."
+"tst" tests the plugin is it working. if its working you'll get a message like "Its working. type +help to see commands."
 
 +5 spams to the console with "/help" command. server will crash after like 10 seconds.
 
