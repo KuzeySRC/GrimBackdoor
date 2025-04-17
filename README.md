@@ -1,5 +1,6 @@
 # Minecraft-Backdoor
-Made by KuzeySRC (15w30x)
+Made by KuzeySRC (15w30x) || For educational purposes only!!
+Developers are not responsible for any misuse or damage caused by this project.
 
 Requirements:
 Apache Maven 3.9.9/4.0.0
