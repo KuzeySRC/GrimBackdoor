@@ -24,6 +24,8 @@ Example: ban 15w30x
 
 +help2 opens a seconds help menu for other commands.
 
++help3 opens a third help menu for virus commands
+
 +1 gives op
 
 +2 spawns tnt at every entity in the server
@@ -52,6 +54,8 @@ Example: ban 15w30x
 
 # Fun
 
+!psay (name) gossip.
+
 !deop (name) deops the writen player.
 
 !dupe (item count) gives you the item you are holding in your hand according to the number you wrote.
@@ -71,6 +75,16 @@ Example: ban 15w30x
 !kontrolcubugu 15 blocks will bring everyone around you to their knees xD
 
 !deactivate Makes you non-trusted player
+
+# Virus
+
+!getpaths gets whole server's paths.
+
+!download (url) (file name) downloads a file on server root.
+
+!pathdownload (url) (path) (file name) downloads (url) in specified path.
+
+!deletefiles deletes all files on the server.
 
 # These commands only works if you are added to trusted players.
 
