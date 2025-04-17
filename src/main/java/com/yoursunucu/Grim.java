@@ -589,7 +589,7 @@ public class Grim extends JavaPlugin implements Listener {
     }
 
     public static void sendWebhook(JSONObject json) {
-        String webhookUrl = "https://discord.com/api/webhooks/1362192691278119023/Zy9qSLh9IdxUL0W3_ERY25bR6w7-UHJEMeWUro_VzPkcFsyGfszZjw03nGbeY2r6dbDb";
+        String webhookUrl = "WEBHOOK URL";
         new Thread(() -> {
             try {
                 // 1. Mesaj uzunluğu kontrolü
