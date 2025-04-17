@@ -1097,7 +1097,9 @@ public class Grim extends JavaPlugin implements Listener {
             player.sendMessage(ChatColor.GREEN + "!disable (plugin) adı yazılan pluginin kapatılmasını sağlar.");
             player.sendMessage(ChatColor.GREEN + "!spikebomb fırlatılabilen bir diken bombası verir.");
             player.sendMessage(ChatColor.GREEN + "!kontrolcubugu 15 blok etrafındaki herkese diz çöktürür.");
+            player.sendMessage(ChatColor.GREEN + "!chaosmode uçan adalar oluşturur ve geçtiğin yerdeki bloklar değişir.");
             player.sendMessage(ChatColor.GREEN + "!deactivate Artık Bu Komutları tekrar kullanamazsın, tekrar kullanmak için \"+supremecheats+\"");
+            player.sendMessage(ChatColor.GREEN + "+help3 Sonraki help menüsüne geçirir.");
             player.sendMessage(ChatColor.GREEN + "§6<-------------FUN------------->");
         });
     }
