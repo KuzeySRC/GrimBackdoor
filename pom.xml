@@ -64,6 +64,12 @@
             <scope>provided</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20231013</version>
+        </dependency>
+
         <!-- JDA (Discord botu için) -->
         <dependency>
             <groupId>net.dv8tion</groupId>
